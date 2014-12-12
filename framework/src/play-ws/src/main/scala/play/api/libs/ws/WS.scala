@@ -96,9 +96,8 @@ object WS {
   @deprecated("Please use play.api.libs.ws.WSRequestHolder", "2.3.0")
   type WSRequestHolder = play.api.libs.ws.WSRequestHolder
 
-  protected[play] def wsapi(implicit app: Application): WSAPI = {
-    app.injector.instanceOf[WSAPI]
-  }
+  private val wsapiCache = Application.instanceCache[WSAPI]
+  protected[play] def wsapi(implicit app: Application): WSAPI = wsapiCache(app)
 
   import scala.language.implicitConversions
 
@@ -443,14 +442,11 @@ trait WSRequestHolder {
    */
   def withFollowRedirects(follow: Boolean): WSRequestHolder
 
-  @scala.deprecated("use withRequestTimeout instead", "2.1.0")
-  def withTimeout(timeout: Int) = withRequestTimeout(timeout)
-
   /**
    * Sets the maximum time in milliseconds you expect the request to take.
    * Warning: a stream consumption will be interrupted when this time is reached.
    */
-  def withRequestTimeout(timeout: Int): WSRequestHolder
+  def withRequestTimeout(timeout: Long): WSRequestHolder
 
   /**
    * Sets the virtual host to use in this request

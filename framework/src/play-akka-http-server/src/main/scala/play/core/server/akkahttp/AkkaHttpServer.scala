@@ -4,9 +4,9 @@ import akka.actor.ActorSystem
 import akka.http.Http
 import akka.http.model._
 import akka.http.model.headers.{ `Content-Length`, `Content-Type` }
-import akka.io.IO
 import akka.pattern.ask
-import akka.stream.scaladsl2._
+import akka.stream.FlowMaterializer
+import akka.stream.scaladsl._
 import akka.util.{ ByteString, Timeout }
 import com.typesafe.config.{ ConfigFactory, Config }
 import java.net.InetSocketAddress
@@ -16,8 +16,9 @@ import play.api.http.{ HttpRequestHandler, DefaultHttpErrorHandler, HeaderNames,
 import play.api.libs.iteratee._
 import play.api.libs.streams.Streams
 import play.api.mvc._
-import play.core.server._
 import play.core.{ ApplicationProvider, Execution, Invoker }
+import play.core.server._
+import play.core.server.common.ServerResultUtils
 import scala.concurrent.duration._
 import scala.concurrent.Future
 import scala.util.control.NonFatal
@@ -46,19 +47,13 @@ class AkkaHttpServer(config: ServerConfig, appProvider: ApplicationProvider) ext
     // Bind the socket
     import system.dispatcher
 
-    val bindingFuture = {
+    val binding: Http.ServerBinding = {
       import java.util.concurrent.TimeUnit.MILLISECONDS
       implicit val askTimeout: Timeout = Timeout(userConfig.getDuration("http-bind-timeout", MILLISECONDS), MILLISECONDS)
-      IO(Http) ? Http.Bind(interface = config.address, port = config.port.get)
+      Http().bind(interface = config.address, port = config.port.get)
     }
-    bindingFuture foreach {
-      case Http.ServerBinding(localAddress, connectionStream) =>
-        Source(connectionStream).foreach {
-          case Http.IncomingConnection(remoteAddress, requestPublisher, responseSubscriber) ⇒
-            Source(requestPublisher)
-              .mapAsync(handleRequest(remoteAddress, _))
-              .connect(Sink(responseSubscriber)).run()
-        }
+    binding.connections foreach { incoming: Http.IncomingConnection =>
+      incoming.handleWithAsyncHandler(handleRequest(incoming.remoteAddress, _))
     }
   }
 
@@ -156,7 +151,10 @@ class AkkaHttpServer(config: ServerConfig, appProvider: ApplicationProvider) ext
 
     val actionIteratee: Iteratee[Array[Byte], Result] = action(taggedRequestHeader)
     val resultFuture: Future[Result] = requestBodyEnumerator |>>> actionIteratee
-    val responseFuture: Future[HttpResponse] = resultFuture.map(ModelConversion.convertResult)
+    val responseFuture: Future[HttpResponse] = resultFuture.flatMap { result =>
+      val cleanedResult: Result = ServerResultUtils.cleanFlashCookie(taggedRequestHeader, result)
+      ModelConversion.convertResult(cleanedResult)
+    }
     responseFuture
   }
 

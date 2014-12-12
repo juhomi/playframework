@@ -3,6 +3,8 @@
  */
 package play.api.libs
 
+import java.util.Locale
+
 /**
  * MIME type utilities.
  */
@@ -14,7 +16,7 @@ object MimeTypes {
    * @param ext the file extension, e.g. `txt`
    * @return the MIME type, if defined
    */
-  def forExtension(ext: String): Option[String] = types.get(ext)
+  def forExtension(ext: String): Option[String] = types.get(ext.toLowerCase(Locale.ENGLISH))
 
   /**
    * Retrieves the usual MIME type for a given file name
@@ -22,7 +24,7 @@ object MimeTypes {
    * @param name the file name, e.g. `hello.txt`
    * @return the MIME type, if defined
    */
-  def forFileName(name: String) = name.split('.').takeRight(1).headOption.flatMap(forExtension(_))
+  def forFileName(name: String): Option[String] = name.split('.').takeRight(1).headOption.flatMap(forExtension(_))
 
   def types: Map[String, String] = defaultTypes ++ applicationTypes
 

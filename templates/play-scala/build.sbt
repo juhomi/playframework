@@ -8,9 +8,9 @@ scalaVersion := "%SCALA_VERSION%"
 
 libraryDependencies ++= Seq(
   jdbc,
-  anorm,
   cache,
-  ws
+  ws,
+  specs2 % Test
 )
 
 // Play provides two styles of routers, one expects its actions to be injected, the

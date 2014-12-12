@@ -17,15 +17,25 @@ object PlayImport {
 
   def component(id: String) = "com.typesafe.play" %% id % play.core.PlayVersion.current
 
+  def movedExternal(msg: String): ModuleID = {
+    System.err.println(msg)
+    class ComponentExternalisedException extends RuntimeException(msg) with FeedbackProvidedException
+    throw new ComponentExternalisedException
+  }
+
   val jdbc = component("play-jdbc")
 
-  val anorm = component("anorm")
+  def anorm = movedExternal(
+    """Anorm has been moved to an external module.
+      |See https://playframework.com/documentation/2.4.x/Migration24 for details.""".stripMargin)
 
   val javaCore = component("play-java")
 
   val javaJdbc = component("play-java-jdbc")
 
-  val javaEbean = component("play-java-ebean")
+  def javaEbean = movedExternal(
+    """Play ebean module has been replaced with an external Play ebean plugin.
+      |See https://playframework.com/documentation/2.4.x/Migration24 for details.""".stripMargin)
 
   val javaJpa = component("play-java-jpa")
 
@@ -35,43 +45,11 @@ object PlayImport {
 
   val json = component("play-json")
 
-  val ws = "com.typesafe.play" %% "play-ws" % play.core.PlayVersion.current
+  val ws = component("play-ws")
 
-  val javaWs = "com.typesafe.play" %% "play-java-ws" % play.core.PlayVersion.current
+  val javaWs = component("play-java-ws")
 
-  val defaultJavaTemplateImports = Seq(
-    "models._",
-    "controllers._",
-
-    "java.lang._",
-    "java.util._",
-
-    "scala.collection.JavaConversions._",
-    "scala.collection.JavaConverters._",
-
-    "play.api.i18n._",
-    "play.core.j.PlayMagicForJava._",
-
-    "play.mvc._",
-    "play.data._",
-    "play.api.data.Field",
-
-    "play.mvc.Http.Context.Implicit._",
-
-    "views.%format%._")
-
-  val defaultScalaTemplateImports = Seq(
-    "models._",
-    "controllers._",
-
-    "play.api.i18n._",
-
-    "play.api.mvc._",
-    "play.api.data._",
-
-    "views.%format%._")
-
-  val defaultTemplateImports = Seq("play.api.templates.PlayMagic._")
+  val specs2 = component("play-specs2")
 
   /**
    * Add this to your build.sbt, eg:
@@ -121,10 +99,6 @@ object PlayImport {
     val playDocsName = SettingKey[String]("play-docs-name", "Artifact name of the Play documentation")
     val playDocsModule = SettingKey[Option[ModuleID]]("play-docs-module", "Optional Play documentation dependency")
     val playDocsJar = TaskKey[Option[File]]("play-docs-jar", "Optional jar file containing the Play documentation")
-
-    val ebeanEnabled = SettingKey[Boolean]("play-ebean-enabled")
-
-    val ebeanModels = SettingKey[String]("play-ebean-models")
 
     val playPlugin = SettingKey[Boolean]("play-plugin")
 

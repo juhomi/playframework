@@ -5,7 +5,7 @@ package play.api.http
 
 import javax.inject.{ Singleton, Inject, Provider }
 
-import play.api.{ Play, Configuration }
+import play.api.{ Application, Play, Configuration }
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -36,7 +36,7 @@ case class SessionConfiguration(cookieName: String = "PLAY_SESSION", secure: Boo
  *
  * @param cookieName The name of the cookie used to store the session
  */
-case class FlashConfiguration(cookieName: String = "PLAY_FLASH")
+case class FlashConfiguration(cookieName: String = "PLAY_FLASH", secure: Boolean = false)
 
 object HttpConfiguration {
 
@@ -64,13 +64,15 @@ object HttpConfiguration {
         domain = configuration.getDeprecatedStringOpt("play.http.session.domain", "session.domain")
       ),
       flash = FlashConfiguration(
-        cookieName = configuration.getDeprecatedString("play.http.flash.cookieName", "flash.cookieName")
+        cookieName = configuration.getDeprecatedString("play.http.flash.cookieName", "flash.cookieName"),
+        secure = configuration.getBoolean("play.http.flash.secure").getOrElse(false)
       )
     )
   }
 
+  private val httpConfigurationCache = Application.instanceCache[HttpConfiguration]
   /**
    * Don't use this - only exists for transition from global state
    */
-  def current = Play.maybeApplication.fold(HttpConfiguration())(_.injector.instanceOf[HttpConfiguration])
+  def current = Play.maybeApplication.fold(HttpConfiguration())(httpConfigurationCache)
 }

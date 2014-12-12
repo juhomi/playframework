@@ -69,6 +69,7 @@ While Play 2.4 won't force you to use the dependency injected versions of compon
 | [`Messages`](api/scala/index.html#play.api.i18n.Messages$) | [`MessagesApi`](api/scala/index.html#play.api.i18n.MessagesApi) | Using one of the `preferred` methods, you can get a [`Messages`](api/scala/index.html#play.api.i18n.Messages) instance. |
 | [`DB`](api/scala/index.html#play.api.db.DB$) | [`DBApi`](api/scala/index.html#play.api.db.DBApi) or better, [`Database`](api/scala/index.html#play.api.db.Database) | You can get a particular database using the `@NamedDatabase` annotation. |
 | [`Cache`](api/scala/index.html#play.api.cache.Cache$) | [`CacheApi`](api/scala/index.html#play.api.cache.CacheApi) or better | You can get a particular cache using the `@NamedCache` annotation. |
+| [`Cached` object](api/scala/index.html#play.api.cache.Cached$) | [`Cached` instance](api/scala/index.html#play.api.cache.Cached) | Use an injected instance instead of the companion object. You can use the `@NamedCache` annotation. |
 | [`Akka`](api/scala/index.html#play.api.libs.concurrent.Akka$) | N/A | No longer needed, just declare a dependency on `ActorSystem` |
 | [`WS`](api/scala/index.html#play.api.libs.ws.WS$) | [`WSClient`](api/scala/index.html#play.api.libs.ws.WSClient) | |
 
@@ -83,6 +84,18 @@ While Play 2.4 won't force you to use the dependency injected versions of compon
 | [`Cache`](api/java/play/cache/Cache.html) | [`CacheApi`](api/java/play/cache/CacheApi.html) | You can get a particular cache using the [`@NamedCache`](api/java/play/cache/NamedCache.html) annotation. |
 | [`Akka`](api/java/play/libs/Akka.html) | N/A | No longer needed, just declare a dependency on `ActorSystem` |
 | [`WS`](api/java/play/libs/ws/WS.html) | [`WSClient`](api/java/play/libs/ws/WSClient.html) | |
+
+## Ebean
+
+Ebean has been pulled out into an external project, to allow it to have a lifecycle independent of Play's own lifecycle.  The ebean bytecode enhancement functionality has also been extracted out of the Play sbt plugin into its own plugin.
+
+To migrate an existing Play project that uses ebean to use the new external ebean plugin, remove `javaEbean` from your `libraryDependencies` in `build.sbt`, and add the following to `project/plugins.sbt`:
+
+```scala
+addSbtPlugin("com.typesafe.sbt" % "sbt-play-ebean" % "1.0.0")
+```
+
+Additionally, Ebean has been upgraded to 4.2.0, which pulls in a few of the features that Play previously added itself, including the `Model` class.  Consequently, the Play `Model` class has been deprecated, in favour of using `org.avaje.ebean.Model`.
 
 ## Body Parsers
 
@@ -128,7 +141,13 @@ If you wish to continue using the older format of encryption decryption, here is
 
 ## Anorm
 
-New Anorm version includes various fixes and improvements.
+Anorm has been pulled out of the core of Play into a separately managed project that can have its own lifecycle.  To add a dependency on it, use:
+
+```scala
+libraryDependencies += "com.typesafe.play" %% "anorm" % "2.4.0"
+```
+
+The new Anorm version includes various fixes and improvements.
 
 Following [BatchSQL #3016](https://github.com/playframework/playframework/commit/722cd55a3a5369f911f5d11f7c93ba4bf100ca23), `SqlQuery` case class is refactored as a trait with companion object. 
 Consequently, `BatchSql` is now created by passed a raw statement which is validated internally.
@@ -281,3 +300,11 @@ Short              | BigDecimal
 - **Joda Time**: New conversions for Joda `Instant` or `DateTime`, from `Long`, `Date` or `Timestamp` column.
 - Parses text column as `UUID` value: `SQL("SELECT uuid_as_text").as(scalar[UUID].single)`.
 - Passing `None` for a nullable parameter is deprecated, and typesafe `Option.empty[T]` must be use instead.
+
+## Specs 2 support
+
+Play's support for specs2 has been pulled out of `play-test`.  Now if you want to use Play's specs2 support, you have to explicitly add a dependency on `play-specs2`, which can be done using the convenient alias provided by the Play sbt plugin:
+
+```scala
+libraryDependencies += specs2 % Test
+```

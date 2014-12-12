@@ -19,6 +19,7 @@ import play.api.mvc._
 import play.api.libs.iteratee._
 import play.api.libs.iteratee.Input._
 import play.core.server.Server
+import play.core.server.common.ServerResultUtils
 import play.core.server.netty.ForwardedHeaderHandler.ForwardedHeaderHandlerConfig
 import play.core.websocket._
 import scala.collection.JavaConverters._
@@ -49,6 +50,12 @@ private[play] class PlayDefaultUpstreamHandler(server: Server, allChannels: Defa
       case e: TooLongFrameException =>
         logger.warn("Handling TooLongFrameException", e)
         val response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.REQUEST_URI_TOO_LONG)
+        response.headers().set(Names.CONNECTION, "close")
+        ctx.getChannel.write(response).addListener(ChannelFutureListener.CLOSE)
+      case e: IllegalArgumentException if Option(e.getMessage).exists(_.contains("Header value contains a prohibited character")) =>
+        // https://github.com/netty/netty/blob/netty-3.9.3.Final/src/main/java/org/jboss/netty/handler/codec/http/HttpHeaders.java#L1075-L1080
+        logger.debug("Handling Header value error", e)
+        val response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.BAD_REQUEST)
         response.headers().set(Names.CONNECTION, "close")
         ctx.getChannel.write(response).addListener(ChannelFutureListener.CLOSE)
       case e =>
@@ -140,24 +147,6 @@ private[play] class PlayDefaultUpstreamHandler(server: Server, allChannels: Defa
         // handler downstream from this one that produces these events.
         implicit val msgCtx = ctx
         implicit val oue = e.asInstanceOf[OrderedUpstreamMessageEvent]
-
-        def cleanFlashCookie(result: Result): Result = {
-          val header = result.header
-
-          val flashCookie = {
-            header.headers.get(SET_COOKIE)
-              .map(Cookies.decode(_))
-              .flatMap(_.find(_.name == Flash.COOKIE_NAME)).orElse {
-                Option(requestHeader.flash).filterNot(_.isEmpty).map { _ =>
-                  Flash.discard.toCookie
-                }
-              }
-          }
-
-          flashCookie.map { newCookie =>
-            result.withHeaders(SET_COOKIE -> Cookies.merge(header.headers.get(SET_COOKIE).getOrElse(""), Seq(newCookie)))
-          }.getOrElse(result)
-        }
 
         handler match {
           //execute normal action
@@ -286,7 +275,8 @@ private[play] class PlayDefaultUpstreamHandler(server: Server, allChannels: Defa
                 .map((_, 0))
           }.flatMap {
             case (result, sequence) =>
-              NettyResultStreamer.sendResult(cleanFlashCookie(result), !keepAlive, nettyVersion, sequence)
+              val cleanedResult = ServerResultUtils.cleanFlashCookie(requestHeader, result)
+              NettyResultStreamer.sendResult(cleanedResult, !keepAlive, nettyVersion, sequence)
           }
 
         }

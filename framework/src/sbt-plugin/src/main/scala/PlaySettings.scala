@@ -15,6 +15,7 @@ import com.typesafe.sbt.packager.Keys._
 import play.sbtplugin.{ PlayPositionMapper, ApplicationSecretGenerator }
 import com.typesafe.sbt.web.SbtWeb.autoImport._
 import WebKeys._
+import scala.collection.JavaConverters._
 import scala.language.postfixOps
 import play.twirl.sbt.Import.TwirlKeys
 import play.sbtplugin.routes.RoutesKeys._
@@ -24,18 +25,15 @@ trait PlaySettings {
 
   lazy val defaultJavaSettings = Seq[Setting[_]](
 
-    TwirlKeys.templateImports ++= defaultJavaTemplateImports,
+    TwirlKeys.templateImports ++= TemplateImports.defaultJavaTemplateImports.asScala,
 
     routesImport ++= Seq(
       "play.libs.F"
-    ),
-
-    ebeanEnabled := true
-
+    )
   )
 
   lazy val defaultScalaSettings = Seq[Setting[_]](
-    TwirlKeys.templateImports ++= defaultScalaTemplateImports
+    TwirlKeys.templateImports ++= TemplateImports.defaultScalaTemplateImports.asScala
   )
 
   /** Ask SBT to manage the classpath for the given configuration. */
@@ -51,23 +49,7 @@ trait PlaySettings {
       "Typesafe Releases Repository" at "https://repo.typesafe.com/typesafe/releases/"
     ),
 
-    target <<= baseDirectory(_ / "target"),
-
-    sourceDirectory in Compile <<= baseDirectory(_ / "app"),
-    sourceDirectory in Test <<= baseDirectory(_ / "test"),
-
-    confDirectory <<= baseDirectory(_ / "conf"),
-
-    resourceDirectory in Compile <<= baseDirectory(_ / "conf"),
-
-    scalaSource in Compile <<= baseDirectory(_ / "app"),
-    scalaSource in Test <<= baseDirectory(_ / "test"),
-
-    javaSource in Compile <<= baseDirectory(_ / "app"),
-    javaSource in Test <<= baseDirectory(_ / "test"),
-
-    sourceDirectories in (Compile, TwirlKeys.compileTemplates) := Seq((sourceDirectory in Compile).value),
-    sourceDirectories in (Test, TwirlKeys.compileTemplates) := Seq((sourceDirectory in Test).value),
+    confDirectory <<= resourceDirectory in Compile,
 
     javacOptions in (Compile, doc) := List("-encoding", "utf8"),
 
@@ -82,7 +64,7 @@ trait PlaySettings {
     libraryDependencies += "com.typesafe.play" %% "play-test" % play.core.PlayVersion.current % "test",
 
     ivyConfigurations += DocsApplication,
-    playOmnidoc := !isSnapshot.value,
+    playOmnidoc := !play.core.PlayVersion.current.endsWith("-SNAPSHOT"),
     playDocsName := { if (playOmnidoc.value) "play-omnidoc" else "play-docs" },
     playDocsModule := Some("com.typesafe.play" %% playDocsName.value % play.core.PlayVersion.current % DocsApplication.name),
     libraryDependencies ++= playDocsModule.value.toSeq,
@@ -105,18 +87,14 @@ trait PlaySettings {
       tf => tf.filter(_ != TestFrameworks.Specs2).:+(TestFrameworks.Specs2)
     },
 
-    testResultReporter <<= testResultReporterTask,
-
-    testResultReporterReset <<= testResultReporterResetTask,
-
     // Adds config directory's source files to continuous hot reloading
     watchSources <+= confDirectory map {
       all => all
     },
 
     // Adds app directory's source files to continuous hot reloading
-    watchSources <++= baseDirectory map {
-      path => ((path / "app") ** "*" --- (path / "app/assets") ** "*").get
+    watchSources <++= (sourceDirectory in Compile, sourceDirectory in Assets) map { (sources, assets) =>
+      (sources ** "*" --- assets ** "*").get
     },
 
     commands ++= Seq(shCommand, playStartCommand, h2Command, classpathCommand, licenseCommand, computeDependenciesCommand),
@@ -135,12 +113,6 @@ trait PlaySettings {
     shellPrompt := playPrompt,
 
     mainClass in (Compile, run) := Some("play.core.server.NettyServer"),
-
-    ebeanModels := configuredEbeanModels.value,
-
-    compile in Compile <<= PostCompile(scope = Compile),
-
-    compile in Test <<= PostCompile(Test),
 
     computeDependencies <<= computeDependenciesTask,
 
@@ -184,11 +156,7 @@ trait PlaySettings {
     playInteractionMode := play.PlayConsoleInteractionMode,
 
     // sbt-web
-    sourceDirectory in Assets := (sourceDirectory in Compile).value / "assets",
-    sourceDirectory in TestAssets := (sourceDirectory in Test).value / "assets",
-
     jsFilter in Assets := new PatternFilter("""[^_].*\.js""".r.pattern),
-    resourceDirectory in Assets := baseDirectory.value / "public",
 
     WebKeys.stagingDirectory := WebKeys.stagingDirectory.value / "public",
 
@@ -219,10 +187,6 @@ trait PlaySettings {
     // Settings
 
     devSettings := Nil,
-
-    // Templates
-
-    TwirlKeys.templateImports ++= defaultTemplateImports,
 
     // Native packaging
 

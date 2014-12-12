@@ -10,16 +10,18 @@ object Dependencies {
   val specsBuild = Seq(
     "specs2-core",
     "specs2-junit",
-    "specs2-mock",
-    "specs2-matcher-extra"
+    "specs2-mock"
   ).map("org.specs2" %% _ % specsVersion)
+
+  val specsMatcherExtra = "org.specs2" %% "specs2-matcher-extra" % specsVersion
+
   val specsSbt = specsBuild
 
   val jacksons = Seq(
     "jackson-core",
     "jackson-annotations",
     "jackson-databind"
-  ).map("com.fasterxml.jackson.core" % _ % "2.3.2")
+  ).map("com.fasterxml.jackson.core" % _ % "2.4.4")
 
   val guava = "com.google.guava" % "guava" % "18.0"
   val findBugs = "com.google.code.findbugs" % "jsr305" % "2.0.3" // Needed by guava
@@ -38,12 +40,6 @@ object Dependencies {
 
   val javaJdbcDeps = Seq(acolyte % Test)
 
-  val avajeEbeanormAgent = "org.avaje.ebeanorm" % "avaje-ebeanorm-agent" % "3.2.2" exclude ("javax.persistence", "persistence-api")
-  val ebeanDeps = Seq(
-    "org.avaje.ebeanorm" % "avaje-ebeanorm" % "3.3.4" exclude ("javax.persistence", "persistence-api"),
-    avajeEbeanormAgent
-  )
-
   val jpaDeps = Seq(
     "org.hibernate.javax.persistence" % "hibernate-jpa-2.1-api" % "1.0.0.Final",
     "org.hibernate" % "hibernate-entitymanager" % "4.3.7.Final" % "test"
@@ -58,6 +54,8 @@ object Dependencies {
     "org.yaml" % "snakeyaml" % "1.13",
     // 5.1.0 upgrade notes: need to add JEE dependencies, eg EL
     "org.hibernate" % "hibernate-validator" % "5.0.3.Final",
+    // This is depended on by hibernate validator, we upgrade to 3.2.0 to avoid LGPL license of 3.1.x
+    "org.jboss.logging" % "jboss-logging" % "3.2.0.Final",
 
     ("org.springframework" % "spring-context" % "4.1.1.RELEASE" notTransitive ())
       .exclude("org.springframework", "spring-aop")
@@ -92,12 +90,12 @@ object Dependencies {
     mockitoAll
   ).map(_ % Test)
 
-  val jodatime = "joda-time" % "joda-time" % "2.5"
+  val jodatime = "joda-time" % "joda-time" % "2.6"
   val jodaConvert = "org.joda" % "joda-convert" % "1.7"
 
   val runtime = Seq("slf4j-api", "jul-to-slf4j", "jcl-over-slf4j").map("org.slf4j" % _ % "1.7.6") ++
     Seq("logback-core", "logback-classic").map("ch.qos.logback" % _ % "1.1.1") ++
-    Seq("akka-actor", "akka-slf4j").map("com.typesafe.akka" %% _ % "2.3.5") ++
+    Seq("akka-actor", "akka-slf4j").map("com.typesafe.akka" %% _ % "2.3.7") ++
     jacksons ++
     Seq(
       "org.scala-stm" %% "scala-stm" % "0.7",
@@ -131,7 +129,7 @@ object Dependencies {
   ) ++ specsBuild.map(_ % Test)
 
   val akkaHttp = Seq(
-    "com.typesafe.akka" %% "akka-http-core-experimental" % "0.9"
+    "com.typesafe.akka" %% "akka-http-core-experimental" % "1.0-M1"
   )
 
   val routersCompilerDependencies =  Seq(
@@ -145,9 +143,14 @@ object Dependencies {
     )
   }
 
- val runSupportDependencies = Seq(
-    "org.scala-sbt" % "io" % BuildSettings.buildSbtVersion
+  def runSupportDependencies(scalaBinaryVersion: String) = Seq(
+    sbtIO(scalaBinaryVersion)
   ) ++ specsBuild.map(_ % Test)
+
+  def sbtIO(scalaBinaryVersion: String): ModuleID = scalaBinaryVersion match {
+    case "2.10" => "org.scala-sbt" % "io" % BuildSettings.buildSbtVersion % "provided"
+    case "2.11" => "org.scala-sbt" % "io_2.11" % "0.13.6" % "provided"
+  }
 
   val typesafeConfig = "com.typesafe" % "config" % "1.2.1"
 
@@ -162,8 +165,6 @@ object Dependencies {
       .exclude("com.google.code.findbugs", "jsr305"),
 
     guava,
-
-    avajeEbeanormAgent,
 
     h2database,
 
@@ -196,7 +197,7 @@ object Dependencies {
   ) ++ specsBuild.map(_ % Test)
 
   val streamsDependencies = Seq(
-    "org.reactivestreams" % "reactive-streams" % "0.4.0.M2"
+    "org.reactivestreams" % "reactive-streams" % "1.0.0.M1"
   ) ++ specsBuild.map(_ % "test")
 
   val jsonDependencies = Seq(
@@ -215,11 +216,11 @@ object Dependencies {
     guava % Test
   ) ++ specsBuild.map(_ % Test)
 
-  val testDependencies = Seq(junit) ++ specsBuild ++ Seq(
+  val testDependencies = Seq(junit) ++ specsBuild.map(_ % Test) ++ Seq(
     junitInterface,
     guava,
     findBugs,
-    ("org.fluentlenium" % "fluentlenium-core" % "0.10.2")
+    ("org.fluentlenium" % "fluentlenium-core" % "0.10.3")
       .exclude("org.jboss.netty", "netty")
   )
 
@@ -228,22 +229,10 @@ object Dependencies {
 
   val playWsDeps = Seq(
     guava,
-    "com.ning" % "async-http-client" % "1.8.8"
+    "com.ning" % "async-http-client" % "1.8.15"
   ) ++ Seq("signpost-core", "signpost-commonshttp4").map("oauth.signpost" % _  % "1.2.1.2") ++
-  specsBuild.map(_ % Test) :+
+  (specsBuild :+ specsMatcherExtra).map(_ % Test) :+
   mockitoAll % Test
-
-  val anormDependencies = specsBuild.map(_ % Test) ++ Seq(
-    "com.jsuereth" %% "scala-arm" % "1.4",
-    h2database % Test,
-    "org.eu.acolyte" %% "jdbc-scala" % acolyteVersion % Test,
-    jodatime,
-    jodaConvert,
-    "com.chuusai" % "shapeless" % "2.0.0" % Test cross CrossVersion.binaryMapped {
-      case "2.10" => BuildSettings.buildScalaVersion
-      case x => x
-    }
-  )
 
   val playDocsSbtPluginDependencies = Seq(
     "com.typesafe.play" %% "play-doc" % "1.2.0"
